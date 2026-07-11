@@ -1,5 +1,5 @@
 test:
-	gcc -Wall -ggdb test.c -o test.out -lcriterion
+	gcc -Wall -ggdb test.c -o test.out -lcheck
 	./test.out
 
 fuzz_request:

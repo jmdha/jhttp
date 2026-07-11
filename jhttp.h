@@ -13,8 +13,8 @@
 #define HTTP_HEADER_MAX     64
 
 typedef struct http_header {
-	char key[HTTP_HEADER_KEY_MAX];
-	char val[HTTP_HEADER_VAL_MAX];
+	char        key[HTTP_HEADER_KEY_MAX];
+	char        val[HTTP_HEADER_VAL_MAX];
 } http_header;
 
 typedef struct http_request {
