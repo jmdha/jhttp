@@ -49,10 +49,10 @@ static int http_request_parse(http_request* req, const char* buf, int size) {
 	sprintf(tmp, "%.*s", r, buf);
 	if (sscanf(tmp, "%15s %511s %15s", req->method, req->path, req->version) != 3)
 		return -1;
-	r++;
 
 	int s = r;
 	while (1) {
+		r++;
 		if (req->header_count >= HTTP_HEADER_MAX)
 			return -1;
 		if (r >= size)
@@ -70,11 +70,9 @@ static int http_request_parse(http_request* req, const char* buf, int size) {
 			for (size_t i = req->header_count - 1; i > 0 && i <= HTTP_HEADER_MAX; i--)
 				if (strcmp(req->headers[i].key, req->headers[i - 1].key) == 0)
 					return -1;
-			r++;
 			s = r;
 			continue;
 		}
-		r++;
 	}
 
 	return r;

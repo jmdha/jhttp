@@ -4,4 +4,4 @@ test:
 
 fuzz_request:
 	clang -g -O1 -fsanitize=fuzzer,address,undefined fuzz_request.c -o fuzz.out
-	./fuzz.out -max_len=1048576 corpus/request
+	./fuzz.out -max_len=1048576 -dict=http.dict
