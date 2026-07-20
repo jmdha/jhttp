@@ -1,5 +1,9 @@
+bench:
+	gcc -O3 -march=native bench.c -o bench.out
+	./bench.out
+
 test:
-	gcc -Wall -ggdb test.c -o test.out -lcheck
+	gcc -Wall -ggdb -fsanitize=address test.c -o test.out
 	./test.out
 
 fuzz_request:
