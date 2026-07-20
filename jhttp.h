@@ -83,8 +83,7 @@ static int http_request_parse(struct http_request* req, char* str) {
 	// request end validation
 	if (str[0] != '\r' || str[1] != '\n') return -1;
 
-	str++, str++;
-	req->body = str;
+	req->body = str + 2;
 	return 0;
 }
 
