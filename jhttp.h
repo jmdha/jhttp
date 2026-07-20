@@ -27,72 +27,64 @@ struct http_response {
 	char   buf[HTTP_RESP_MAX];
 };
 
-static int http_request_parse(struct http_request* req, char* buf, int len) {
+static int http_request_parse(struct http_request* req, char* str) {
 	char* ptr;
 	req->header_count = 0;
 
+	// skip leading empty line
+	if (str[0] == '\r' && str[1] == '\n') str = str + 2;
+
 	// method
-	if (len == 0) return -1;
-	ptr = memchr(buf, ' ', len);
+	ptr = (char*) strchr(str, ' ');
 	if (!ptr) return -1;
+	req->method = str;
 	*ptr = '\0';
-	req->method = buf;
-	len -= (ptr - buf) + 1;
-	buf = ptr + 1;
+	str = ptr + 1;
 
 	// path
-	if (len == 0) return -1;
-	ptr = memchr(buf, ' ', len);
+	ptr = (char*) strchr(str, ' ');
 	if (!ptr) return -1;
+	req->path = str;
 	*ptr = '\0';
-	req->path = buf;
-	len -= (ptr - buf) + 1;
-	buf = ptr + 1;
+	str = ptr + 1;
 
 	// version
-	if (len == 0) return -1;
-	ptr = memchr(buf, '\r', len);
+	ptr = (char*) strchr(str, '\r');
 	if (!ptr) return -1;
+	req->version = str;
 	*ptr = '\0';
-	req->version = buf;
-	len -= (ptr - buf) + 1;
-	buf = ptr + 1;
-	if (len == 0 || *buf != '\n') return -1;
-	buf++;
-	len--;
+	if (ptr[1] != '\n') return -1;
+	str = ptr + 2;
 
 	// headers
 	while (1) {
+		if (*str == '\r') break;
 		// key
-		ptr = memchr(buf, ':', len);
+		ptr = (char*) strchr(str, ':');
 		if (!ptr) break;
 		if (req->header_count >= HTTP_HEADER_MAX) return -1;
+		req->headers[req->header_count].key = str;
 		*ptr = '\0';
-		req->headers[req->header_count].key = buf;
-		len -= (ptr - buf) + 1;
-		buf = ptr + 1;
-		while (len > 0 && isspace(*buf)) buf++, len--;
+		str = ptr + 1;
+		while (isspace(*str)) str++;
 
 		// val
-		if (len == 0) return -1;
-		ptr = memchr(buf, '\r', len);
+		ptr = (char*) strchr(str, '\r');
 		if (!ptr) return -1;
+		req->headers[req->header_count].val = str;
+		str = ptr + 1;
+		while (isspace(*(ptr - 1))) ptr--;
 		*ptr = '\0';
-		req->headers[req->header_count].val = buf;
-		len -= (ptr - buf) + 1;
-		buf = ptr + 1;
-		if (len == 0 || *buf != '\n') return -1;
-		buf++;
-		len--;
+		if (*str != '\n') return -1;
+		str++;
 		req->header_count++;
 	}
 
 	// request end validation
-	if (len < 2) return -1;
-	if (buf[0] != '\r' || buf[1] != '\n') return -1;
+	if (str[0] != '\r' || str[1] != '\n') return -1;
 
-	buf++, buf++;
-	req->body = buf;
+	str++, str++;
+	req->body = str;
 	return 0;
 }
 

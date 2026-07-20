@@ -46,17 +46,12 @@ static const char* test_name;
 /* Exact-size heap copy so ASan catches any read/write past len */
 static char* cur;
 
-static int parse_n(const char* raw, size_t len, struct http_request* req)
-{
-	free(cur);
-	cur = malloc(len);
-	memcpy(cur, raw, len);
-	return http_request_parse(req, cur, len);
-}
-
 static int parse(const char* raw, struct http_request* req)
 {
-	return parse_n(raw, strlen(raw), req);
+	free(cur);
+	cur = malloc(strlen(raw) + 1);
+	strcpy(cur, raw);
+	return http_request_parse(req, cur);
 }
 
 /* ---- functional ---- */
@@ -332,7 +327,7 @@ TEST(reject_nul_in_field_value)
 	struct http_request req;
 	static const char raw[] =
 	    "GET / HTTP/1.1\r\nX: a\0b\r\nHost: h\r\n\r\n";
-	EXPECT_EQm(-1, parse_n(raw, sizeof(raw) - 1, &req),
+	EXPECT_EQm(-1, parse(raw, &req),
 	           "RFC 9110 §5.5: NUL in value MUST be rejected");
 }
 

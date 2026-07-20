@@ -1,6 +1,3 @@
-#define _POSIX_C_SOURCE 200809L
-
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,83 +5,48 @@
 
 #include "jhttp.h"
 
-static uint64_t ns(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000000000ull + ts.tv_nsec;
-}
+static const char request_template[] =
+    "GET /index.html?foo=bar HTTP/1.1\r\n"
+    "Host: example.com\r\n"
+    "User-Agent: benchmark/1.0\r\n"
+    "Accept: */*\r\n"
+    "Connection: keep-alive\r\n"
+    "\r\n";
 
-static volatile int sink;
+#ifndef ITERATIONS
+#define ITERATIONS 1000000
+#endif
 
 int main(void)
 {
-    static const char request[] =
-        "GET /index.html?x=1 HTTP/1.1\r\n"
-        "Host: example.com\r\n"
-        "User-Agent: benchmark\r\n"
-        "Accept: */*\r\n"
-        "Connection: keep-alive\r\n"
-        "Content-Length: 0\r\n"
-        "\r\n";
-
-    enum {
-        ITERATIONS = 10000000,
-        POOL = 1024
-    };
-
-    char buffers[POOL][sizeof(request)];
-
-    /* Prepare mutable copies */
-    for (int i = 0; i < POOL; i++)
-        memcpy(buffers[i], request, sizeof(request));
-
+    char buffer[sizeof(request_template)];
     struct http_request req;
 
-    /* Warm-up (not timed) */
-    for (int i = 0; i < 100000; i++) {
-        char *buf = buffers[i & (POOL - 1)];
-        memcpy(buf, request, sizeof(request));
-
-	int rc;
-        if ((rc = http_request_parse(&req, buf, sizeof(request) - 1)) != 0)
-            abort();
-
-        sink += rc;
+    /* Warmup */
+    for (int i = 0; i < 1000; ++i) {
+        memcpy(buffer, request_template, sizeof(request_template));
+        http_request_parse(&req, buffer);
     }
 
-    uint64_t start = ns();
+    clock_t start = clock();
 
-    /* Timed parse */
-    for (int i = 0; i < ITERATIONS; i++) {
-        char *buf = buffers[i & (POOL - 1)];
+    for (size_t i = 0; i < ITERATIONS; ++i) {
+        memcpy(buffer, request_template, sizeof(request_template));
 
-        /* Fresh mutable request */
-        memcpy(buf, request, sizeof(request));
-
-	int rc;
-        if ((rc = http_request_parse(&req, buf, sizeof(request) - 1)) != 0)
-            abort();
-
-        sink += rc;
+        /* Prevent the compiler from discarding the call. */
+        volatile int result = http_request_parse(&req, buffer);
+        (void)result;
     }
 
-    uint64_t end = ns();
+    clock_t end = clock();
 
-    double seconds = (end - start) / 1e9;
-    double ns_per = (double)(end - start) / ITERATIONS;
-    double rps = ITERATIONS / seconds;
-    double mibps =
-        ((double)ITERATIONS * (sizeof(request) - 1)) /
-        (1024.0 * 1024.0) / seconds;
+    double elapsed = (double)(end - start) / CLOCKS_PER_SEC;
 
-    printf("iterations      : %d\n", ITERATIONS);
-    printf("request size    : %zu bytes\n", sizeof(request) - 1);
-    printf("time            : %.3f s\n", seconds);
-    printf("requests/sec    : %.0f\n", rps);
-    printf("ns/request      : %.2f\n", ns_per);
-    printf("throughput      : %.2f MiB/s\n", mibps);
-    printf("sink            : %d\n", sink);
+    printf("Iterations:      %zu\n", (size_t)ITERATIONS);
+    printf("Elapsed:         %.6f s\n", elapsed);
+    printf("Requests/sec:    %.0f\n", ITERATIONS / elapsed);
+    printf("Time/request:    %.3f us\n",
+           elapsed * 1e6 / ITERATIONS);
 
     return 0;
 }
