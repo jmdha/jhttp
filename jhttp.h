@@ -28,55 +28,51 @@ struct http_response {
 };
 
 static int http_request_parse(struct http_request* req, char* str) {
-	char* ptr;
 	req->header_count = 0;
 
 	// skip leading empty line
 	if (str[0] == '\r' && str[1] == '\n') str = str + 2;
 
 	// method
-	ptr = (char*) strchr(str, ' ');
-	if (!ptr) return -1;
 	req->method = str;
-	*ptr = '\0';
-	str = ptr + 1;
+	str = (char*) strchr(str, ' ');
+	if (!str) return -1;
+	*str = '\0';
+	str++;
 
 	// path
-	ptr = (char*) strchr(str, ' ');
-	if (!ptr) return -1;
 	req->path = str;
-	*ptr = '\0';
-	str = ptr + 1;
+	str = (char*) strchr(str, ' ');
+	if (!str) return -1;
+	*str = '\0';
+	str++;
 
 	// version
-	ptr = (char*) strchr(str, '\r');
-	if (!ptr) return -1;
 	req->version = str;
-	*ptr = '\0';
-	if (ptr[1] != '\n') return -1;
-	str = ptr + 2;
+	str = (char*) strchr(str, '\r');
+	if (!str) return -1;
+	*str = '\0';
+	if (str[1] != '\n') return -1;
+	str++, str++;
 
 	// headers
 	while (1) {
 		if (*str == '\r') break;
 		// key
-		ptr = (char*) strchr(str, ':');
-		if (!ptr) break;
 		if (req->header_count >= HTTP_HEADER_MAX) return -1;
 		req->headers[req->header_count].key = str;
-		*ptr = '\0';
-		str = ptr + 1;
-		while (isspace(*str)) str++;
+		str = strchr(str, ':');
+		if (!str) return -1;
+		*str = '\0';
+		str++;
 
 		// val
-		ptr = (char*) strchr(str, '\r');
-		if (!ptr) return -1;
+		while (isspace(*str)) str++;
 		req->headers[req->header_count].val = str;
-		str = ptr + 1;
-		while (isspace(*(ptr - 1))) ptr--;
-		*ptr = '\0';
-		if (*str != '\n') return -1;
-		str++;
+		str = (char*) strchr(str, '\r');
+		if (!str) return -1;
+		if (str[1] != '\n') return -1;
+		str++, str++;
 		req->header_count++;
 	}
 
