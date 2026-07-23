@@ -20,12 +20,12 @@ static const char request_template[] =
 int main(void)
 {
     char buffer[sizeof(request_template)];
-    struct http_request req;
+    struct jhttp_request req;
 
     /* Warmup */
     for (int i = 0; i < 1000; ++i) {
         memcpy(buffer, request_template, sizeof(request_template));
-        http_request_parse(&req, buffer);
+        jhttp_request_parse(&req, buffer);
     }
 
     clock_t start = clock();
@@ -34,7 +34,7 @@ int main(void)
         memcpy(buffer, request_template, sizeof(request_template));
 
         /* Prevent the compiler from discarding the call. */
-        volatile int result = http_request_parse(&req, buffer);
+        volatile int result = jhttp_request_parse(&req, buffer);
         (void)result;
     }
 
