@@ -1,11 +1,14 @@
 #ifndef JHTTP
 #define JHTTP
 
+#include <asm-generic/errno.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
@@ -113,6 +116,15 @@ static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(const struc
 	jhttp->socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (jhttp->socket == -1) return -1;
 
+	// set non-blocking
+	int flags = fcntl(jhttp->socket, F_GETFL, 0);
+	fcntl(jhttp->socket, F_SETFL, flags | O_NONBLOCK);
+
+	// set reuse addr
+	int opt = 1;
+	setsockopt(jhttp->socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+	// set address
 	memset(&jhttp->addr, 0, sizeof(jhttp->addr));
 	jhttp->addr.sin_family      = AF_INET;
 	jhttp->addr.sin_port        = htons(port);
@@ -125,42 +137,64 @@ static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(const struc
 }
 
 static int jhttp_fini(struct jhttp* jhttp) {
+	for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++)
+		if (jhttp->conns[i].socket)
+			close(jhttp->conns[i].socket);
 	if (jhttp->socket) close(jhttp->socket);
 	return 0;
 }
 
-static int jhttp_poll(struct jhttp* jhttp) {
-	{
-		size_t addr_len = sizeof(jhttp->addr);
-		int s = accept(jhttp->socket, (struct sockaddr*) &jhttp->addr, (socklen_t*) &addr_len);
-		if (s == -1) return -1;
-		for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++)
-			if (!jhttp->conns[i].socket) {
-				jhttp->conns[i].socket = s;
-				jhttp->conns[i].len = 0;
-			}
+static int jhttp_accept(struct jhttp* jhttp) {
+	socklen_t addr_len = sizeof(jhttp->addr);
+	int s = accept(jhttp->socket, (struct sockaddr*) &jhttp->addr, &addr_len);
+	if (s == -1 && errno != EAGAIN && errno != EWOULDBLOCK) return -1;
+	if (s == -1 && (errno == EAGAIN || EWOULDBLOCK)) return 0;
+	int flags = fcntl(s, F_GETFL, 0);
+	if (flags == -1) {
+		perror("fcntl");
+		return -1;
 	}
+	if (fcntl(s, F_SETFL, flags | O_NONBLOCK) == -1) {
+		perror("fcntl");
+		return -1;
+	}
+	for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++)
+		if (!jhttp->conns[i].socket) {
+			jhttp->conns[i].socket = s;
+			jhttp->conns[i].len = 0;
+			return 0;
+		}
+	return 0;
+}
+
+static int jhttp_poll(struct jhttp* jhttp) {
+	if (jhttp_accept(jhttp) != 0) return -1;
 	struct jhttp_request req;
 	for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++) {
-		int   s = jhttp->conns[i].socket;
-		int   l = jhttp->conns[i].len;
-		char* b = jhttp->conns[i].buffer;
-		if (!s)
-			continue;
-		int   r = read(s, b, sizeof(jhttp->conns[i].buffer) - l);
-		if (r <= 0) {
-			l = 0;
-			close(s);
+		struct jhttp_connection* conn = &jhttp->conns[i];
+		if (!conn->socket) continue;
+		int r = read(conn->socket, conn->buffer, sizeof(conn->buffer) - conn->len);
+		if (r < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
+			close(conn->socket);
+			memset(conn, 0, sizeof(struct jhttp_connection));
 			continue;
 		}
-		jhttp->conns[i].len = r;
-		printf("%d, %d\n", s, r);
-		int   p = jhttp_request_parse(&req, b);
-		if (p >= 0)
-			jhttp->callback(&req);
-		close(s);
-		jhttp->conns[i].socket = 0;
-		jhttp->conns[i].len = 0;
+		conn->len += r;
+		memset(&req, 0, sizeof(struct jhttp_request));
+		char buf[sizeof(conn->buffer) + 1];
+		memcpy(buf, conn->buffer, sizeof(conn->buffer));
+		int s = jhttp_request_parse(&req, buf);
+		if (s < 0) {
+			close(conn->socket);
+			memset(conn, 0, sizeof(struct jhttp_connection));
+			continue;
+		}
+		if (!req.body)
+			continue;
+		jhttp->callback(&req);
+		close(conn->socket);
+		memset(conn, 0, sizeof(struct jhttp_connection));
 	}
 	return 0;
 }
