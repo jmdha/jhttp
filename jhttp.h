@@ -207,6 +207,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		char obuf[JHTTP_RESPONSE_MAX];
 		switch (res.status) {
 		case 200: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 200 OK\r\n"); break;
+		case 404: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 404 NOT FOUND\r\n"); break;
 		}
 		len += snprintf(obuf + len, sizeof(obuf) - len, "Content-Length: %zu\r\n\r\n", strlen(res.body));
 		len += snprintf(obuf + len, sizeof(obuf) - len, "%s", res.body);
@@ -217,7 +218,6 @@ static int jhttp_poll(struct jhttp* jhttp) {
 				break;
 			sent += n;
 		}
-		write(conn->socket, obuf, len);
 		conn->len = 0;
 	}
 	return 0;

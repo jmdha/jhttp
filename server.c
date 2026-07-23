@@ -1,5 +1,6 @@
-#include "jhttp.h"
 #include <signal.h>
+
+#include "jhttp.h"
 
 struct route {
 	char* method;
@@ -27,6 +28,7 @@ int handler(struct jhttp_response* res, const struct jhttp_request* req) {
 		if (strcmp(req->method, routes[i].method) == 0 && 
 		    strcmp(req->path,   routes[i].path)   == 0)
 			return routes[i].fn(res, req);
+	res->status = 404;
 	return 0;
 }
 
