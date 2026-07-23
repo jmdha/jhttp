@@ -13,7 +13,8 @@
 #include <arpa/inet.h>
 
 #define JHTTP_HEADER_MAX     16
-#define JHTTP_CONNECTION_MAX 256
+#define JHTTP_CONNECTION_MAX 5000
+#define JHTTP_RESPONSE_MAX   8192
 
 struct jhttp_header {
 	const char* key;
@@ -31,17 +32,17 @@ struct jhttp_request {
 
 struct jhttp_response {
 	size_t status;
-	const char* buf;
+	char   body[JHTTP_RESPONSE_MAX];
 };
 
 struct jhttp_connection {
 	int  socket;
 	int  len;
-	char buffer[8192];
+	char buffer[1024];
 };
 
 struct jhttp {
-	int                     (*callback)(const struct jhttp_request* req);
+	int                     (*callback)(struct jhttp_response* res, const struct jhttp_request* req);
 	int                     socket;
 	struct sockaddr_in      addr;
 	struct jhttp_connection conns[JHTTP_CONNECTION_MAX];
@@ -103,7 +104,7 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	return 0;
 }
 
-static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(const struct jhttp_request* req)) {
+static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(struct jhttp_response* res, const struct jhttp_request* req)) {
 	// handle null ptr
 	if (!jhttp) return -1;
 
@@ -145,31 +146,33 @@ static int jhttp_fini(struct jhttp* jhttp) {
 }
 
 static int jhttp_accept(struct jhttp* jhttp) {
-	socklen_t addr_len = sizeof(jhttp->addr);
-	int s = accept(jhttp->socket, (struct sockaddr*) &jhttp->addr, &addr_len);
-	if (s == -1 && errno != EAGAIN && errno != EWOULDBLOCK) return -1;
-	if (s == -1 && (errno == EAGAIN || EWOULDBLOCK)) return 0;
-	int flags = fcntl(s, F_GETFL, 0);
-	if (flags == -1) {
-		perror("fcntl");
-		return -1;
-	}
-	if (fcntl(s, F_SETFL, flags | O_NONBLOCK) == -1) {
-		perror("fcntl");
-		return -1;
-	}
-	for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++)
-		if (!jhttp->conns[i].socket) {
-			jhttp->conns[i].socket = s;
-			jhttp->conns[i].len = 0;
-			return 0;
+	while (1) {
+		socklen_t addr_len = sizeof(jhttp->addr);
+		int s = accept(jhttp->socket, (struct sockaddr*) &jhttp->addr, &addr_len);
+		if (s == -1 && errno != EAGAIN && errno != EWOULDBLOCK) return -1;
+		if (s == -1 && (errno == EAGAIN || EWOULDBLOCK)) return 0;
+		int flags = fcntl(s, F_GETFL, 0);
+		if (flags == -1) {
+			perror("fcntl");
+			return -1;
 		}
-	return 0;
+		if (fcntl(s, F_SETFL, flags | O_NONBLOCK) == -1) {
+			perror("fcntl");
+			return -1;
+		}
+		for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++)
+			if (!jhttp->conns[i].socket) {
+				jhttp->conns[i].socket = s;
+				jhttp->conns[i].len = 0;
+				break;
+			}
+	}
 }
 
 static int jhttp_poll(struct jhttp* jhttp) {
 	if (jhttp_accept(jhttp) != 0) return -1;
-	struct jhttp_request req;
+	struct jhttp_request  req;
+	struct jhttp_response res;
 	for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++) {
 		struct jhttp_connection* conn = &jhttp->conns[i];
 		if (!conn->socket) continue;
@@ -180,10 +183,16 @@ static int jhttp_poll(struct jhttp* jhttp) {
 			memset(conn, 0, sizeof(struct jhttp_connection));
 			continue;
 		}
+		if (r == 0) {
+			close(conn->socket);
+			memset(conn, 0, sizeof(struct jhttp_connection));
+			continue;
+		}
 		conn->len += r;
 		memset(&req, 0, sizeof(struct jhttp_request));
 		char buf[sizeof(conn->buffer) + 1];
-		memcpy(buf, conn->buffer, sizeof(conn->buffer));
+		memcpy(buf, conn->buffer, conn->len);
+		buf[conn->len] = '\0';
 		int s = jhttp_request_parse(&req, buf);
 		if (s < 0) {
 			close(conn->socket);
@@ -192,9 +201,24 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		}
 		if (!req.body)
 			continue;
-		jhttp->callback(&req);
-		close(conn->socket);
-		memset(conn, 0, sizeof(struct jhttp_connection));
+		jhttp->callback(&res, &req);
+
+		size_t len = 0;
+		char obuf[JHTTP_RESPONSE_MAX];
+		switch (res.status) {
+		case 200: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 200 OK\r\n"); break;
+		}
+		len += snprintf(obuf + len, sizeof(obuf) - len, "Content-Length: %zu\r\n\r\n", strlen(res.body));
+		len += snprintf(obuf + len, sizeof(obuf) - len, "%s", res.body);
+		size_t sent = 0;
+		while (sent < len) {
+			size_t n = write(conn->socket, obuf, len);
+			if (n <= 0)
+				break;
+			sent += n;
+		}
+		write(conn->socket, obuf, len);
+		conn->len = 0;
 	}
 	return 0;
 }
