@@ -209,6 +209,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		case 200: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 200 OK\r\n"); break;
 		case 400: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 400 Bad Request\r\n"); break;
 		case 404: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 404 Not Found\r\n"); break;
+		case 409: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 409 Conflict\r\n"); break;
 		}
 		len += snprintf(obuf + len, sizeof(obuf) - len, "Content-Length: %zu\r\n\r\n", strlen(res.body));
 		len += snprintf(obuf + len, sizeof(obuf) - len, "%s", res.body);
