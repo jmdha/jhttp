@@ -72,8 +72,8 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	req->version = str;
 	str = (char*) strchr(str, '\r');
 	if (!str) return -1;
-	*str = '\0';
 	if (str[1] != '\n') return -1;
+	*str = '\0';
 	str++, str++;
 
 	// headers
@@ -93,6 +93,7 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 		str = (char*) strchr(str, '\r');
 		if (!str) return -1;
 		if (str[1] != '\n') return -1;
+		*str = '\0';
 		str++, str++;
 		req->header_count++;
 	}
