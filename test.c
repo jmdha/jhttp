@@ -61,7 +61,7 @@ TEST(request_line)
 	struct jhttp_request req;
 	EXPECT_EQm(0, parse("GET / HTTP/1.1\r\n\r\n", &req), "parse");
 	EXPECT_STRm("GET", req.method, "method");
-	EXPECT_STRm("/", req.target, "target");
+	EXPECT_STRm("/", req.path, "path");
 	EXPECT_STRm("HTTP/1.1", req.version, "version");
 	EXPECT_EQm(0, req.header_count, "header count");
 }
@@ -70,7 +70,8 @@ TEST(path_with_query)
 {
 	struct jhttp_request req;
 	EXPECT_EQm(0, parse("GET /index.html?x=1&y=2 HTTP/1.1\r\n\r\n", &req), "parse");
-	EXPECT_STRm("/index.html?x=1&y=2", req.target, "target");
+	EXPECT_STRm("/index.html", req.path, "path");
+	EXPECT_STRm("x=1&y=2", req.query, "query");
 }
 
 TEST(single_header)
@@ -219,7 +220,7 @@ TEST(accept_asterisk_form)
 	struct jhttp_request req;
 	EXPECT_EQm(0, parse("OPTIONS * HTTP/1.1\r\nHost: h\r\n\r\n", &req),
 	           "RFC 9112 §3.2.4: asterisk-form request-target");
-	EXPECT_STRm("*", req.target, "target");
+	EXPECT_STRm("*", req.path, "path");
 }
 
 /* RFC 9112 §3.2.2: "A server MUST accept the absolute-form in requests" */
@@ -228,7 +229,7 @@ TEST(accept_absolute_form)
 	struct jhttp_request req;
 	EXPECT_EQm(0, parse("GET http://example.com/x HTTP/1.1\r\nHost: h\r\n\r\n", &req),
 	           "RFC 9112 §3.2.2: absolute-form MUST be accepted");
-	EXPECT_STRm("http://example.com/x", req.target, "target");
+	EXPECT_STRm("http://example.com/x", req.path, "path");
 }
 
 /* RFC 9112 §2.2: "a server ... SHOULD ignore at least one empty line

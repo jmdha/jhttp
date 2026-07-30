@@ -17,15 +17,16 @@
 #define JHTTP_RESPONSE_MAX   8192
 
 struct jhttp_header {
-	const char* key;
-	const char* val;
+	char* key;
+	char* val;
 };
 
 struct jhttp_request {
-	const char* method;
-	const char* target;
-	const char* version;
-	const char* body;
+	char* method;
+	char* path;
+	char* query;
+	char* version;
+	char* body;
 	size_t header_count;
 	struct jhttp_header headers[JHTTP_HEADER_MAX];
 };
@@ -49,6 +50,7 @@ struct jhttp {
 };
 
 static int jhttp_request_parse(struct jhttp_request* req, char* str) {
+	char* ptr;
 	req->header_count = 0;
 
 	// skip leading empty line
@@ -56,21 +58,28 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 
 	// method
 	req->method = str;
-	str = (char*) strchr(str, ' ');
+	str = strchr(str, ' ');
 	if (!str) return -1;
 	*str = '\0';
 	str++;
 
-	// target
-	req->target = str;
-	str = (char*) strchr(str, ' ');
+	// path
+	req->path = str;
+	str = strchr(str, ' ');
 	if (!str) return -1;
 	*str = '\0';
 	str++;
+
+	// query
+	req->query = strchr(req->path, '?');
+	if (req->query) {
+		*req->query = '\0';
+		req->query++;
+	}
 
 	// version
 	req->version = str;
-	str = (char*) strchr(str, '\r');
+	str = strchr(str, '\r');
 	if (!str) return -1;
 	if (str[1] != '\n') return -1;
 	*str = '\0';
@@ -90,7 +99,7 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 		// val
 		while (isspace(*str)) str++;
 		req->headers[req->header_count].val = str;
-		str = (char*) strchr(str, '\r');
+		str = strchr(str, '\r');
 		if (!str) return -1;
 		if (str[1] != '\n') return -1;
 		while (isspace(*(str - 1))) str--;
