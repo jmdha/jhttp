@@ -23,7 +23,7 @@ struct jhttp_header {
 
 struct jhttp_request {
 	const char* method;
-	const char* path;
+	const char* target;
 	const char* version;
 	const char* body;
 	size_t header_count;
@@ -61,8 +61,8 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	*str = '\0';
 	str++;
 
-	// path
-	req->path = str;
+	// target
+	req->target = str;
 	str = (char*) strchr(str, ' ');
 	if (!str) return -1;
 	*str = '\0';
