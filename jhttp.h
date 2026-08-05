@@ -11,9 +11,6 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-#define JHTTP_CONNECTION_MAX 5000
-#define JHTTP_RESPONSE_MAX   8192
-
 struct jhttp_header {
 	char* key;
 	char* val;
@@ -30,20 +27,21 @@ struct jhttp_request {
 
 struct jhttp_response {
 	size_t status;
-	char   body[JHTTP_RESPONSE_MAX];
+	char   body[8192];
 };
 
 struct jhttp_connection {
 	int  socket;
 	int  len;
-	char buffer[1024];
+	char buffer[8192];
 };
 
 struct jhttp {
-	int                     (*callback)(struct jhttp_response* res, const struct jhttp_request* req);
-	int                     socket;
-	struct sockaddr_in      addr;
-	struct jhttp_connection conns[JHTTP_CONNECTION_MAX];
+	int                      (*callback)(struct jhttp_response* res, const struct jhttp_request* req);
+	int                      socket;
+	struct sockaddr_in       addr;
+	size_t                   conn_capacity;
+	struct jhttp_connection* conns;
 };
 
 static int jhttp_request_parse(struct jhttp_request* req, char* str) {
@@ -119,6 +117,8 @@ static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(struct jhtt
 
 	// reset contents
 	memset(jhttp, 0, sizeof(struct jhttp));
+	jhttp->conn_capacity = 8192;
+	jhttp->conns = malloc(jhttp->conn_capacity * sizeof(struct jhttp_connection));
 
 	jhttp->callback = callback;
 
@@ -147,10 +147,11 @@ static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(struct jhtt
 }
 
 static int jhttp_fini(struct jhttp* jhttp) {
-	for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++)
+	for (size_t i = 0; i < jhttp->conn_capacity; i++)
 		if (jhttp->conns[i].socket)
 			close(jhttp->conns[i].socket);
 	if (jhttp->socket) close(jhttp->socket);
+	if (jhttp->conns) free(jhttp->conns);
 	return 0;
 }
 
@@ -169,7 +170,7 @@ static int jhttp_accept(struct jhttp* jhttp) {
 			perror("fcntl");
 			return -1;
 		}
-		for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++)
+		for (size_t i = 0; i < jhttp->conn_capacity; i++)
 			if (!jhttp->conns[i].socket) {
 				jhttp->conns[i].socket = s;
 				jhttp->conns[i].len = 0;
@@ -182,7 +183,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 	if (jhttp_accept(jhttp) != 0) return -1;
 	struct jhttp_request  req;
 	struct jhttp_response res;
-	for (size_t i = 0; i < JHTTP_CONNECTION_MAX; i++) {
+	for (size_t i = 0; i < jhttp->conn_capacity; i++) {
 		struct jhttp_connection* conn = &jhttp->conns[i];
 		if (!conn->socket) continue;
 		int r = read(conn->socket, conn->buffer, sizeof(conn->buffer) - conn->len);
@@ -213,7 +214,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		jhttp->callback(&res, &req);
 
 		size_t len = 0;
-		char obuf[JHTTP_RESPONSE_MAX];
+		char obuf[sizeof(res.body)];
 		switch (res.status) {
 		case 200: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 200 OK\r\n"); break;
 		case 400: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 400 Bad Request\r\n"); break;

@@ -14,7 +14,7 @@ int get_index(struct jhttp_response* res, const struct jhttp_request* req) {
 		"<html>"
 		"	<body><p>Hello!</p></body>"
 		"</html>k";
-	snprintf(res->body, JHTTP_RESPONSE_MAX, "%s", str);
+	snprintf(res->body, sizeof(res->body), "%s", str);
 	res->status = 200;
 	return 0;
 }
