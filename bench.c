@@ -14,7 +14,7 @@ static const char request_template[] =
     "\r\n";
 
 #ifndef ITERATIONS
-#define ITERATIONS 1000000
+#define ITERATIONS 10000000
 #endif
 
 int main(void)
@@ -22,8 +22,7 @@ int main(void)
     char buffer[sizeof(request_template)];
     struct jhttp_request req;
 
-    /* Warmup */
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 10000; ++i) {
         memcpy(buffer, request_template, sizeof(request_template));
         jhttp_request_parse(&req, buffer);
     }
@@ -33,7 +32,6 @@ int main(void)
     for (size_t i = 0; i < ITERATIONS; ++i) {
         memcpy(buffer, request_template, sizeof(request_template));
 
-        /* Prevent the compiler from discarding the call. */
         volatile int result = jhttp_request_parse(&req, buffer);
         (void)result;
     }

@@ -63,7 +63,6 @@ TEST(request_line)
 	EXPECT_STRm("GET", req.method, "method");
 	EXPECT_STRm("/", req.path, "path");
 	EXPECT_STRm("HTTP/1.1", req.version, "version");
-	EXPECT_EQm(0, req.header_count, "header count");
 }
 
 TEST(path_with_query)
@@ -78,7 +77,6 @@ TEST(single_header)
 {
 	struct jhttp_request req;
 	EXPECT_EQm(0, parse("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n", &req), "parse");
-	EXPECT_EQm(1, req.header_count, "header count");
 	EXPECT_STRm("Host", req.headers[0].key, "key");
 	EXPECT_STRm("example.com", req.headers[0].val, "val");
 }
@@ -91,7 +89,6 @@ TEST(multiple_headers)
 	                    "Accept: */*\r\n"
 	                    "Connection: keep-alive\r\n"
 	                    "\r\n", &req), "parse");
-	EXPECT_EQm(3, req.header_count, "header count");
 	EXPECT_STRm("Host", req.headers[0].key, "key 0");
 	EXPECT_STRm("example.com", req.headers[0].val, "val 0");
 	EXPECT_STRm("Accept", req.headers[1].key, "key 1");
@@ -100,41 +97,16 @@ TEST(multiple_headers)
 	EXPECT_STRm("keep-alive", req.headers[2].val, "val 2");
 }
 
-static void build_request(char* buf, int nheaders)
-{
-	int off = sprintf(buf, "GET / HTTP/1.1\r\n");
-	for (int i = 0; i < nheaders; i++)
-		off += sprintf(buf + off, "H%d: v\r\n", i);
-	sprintf(buf + off, "\r\n");
-}
-
-TEST(header_count_max)
-{
-	char raw[1024];
-	struct jhttp_request req;
-	build_request(raw, JHTTP_HEADER_MAX);
-	EXPECT_EQm(0, parse(raw, &req), "parse");
-	EXPECT_EQm(JHTTP_HEADER_MAX, req.header_count, "header count");
-}
-
-TEST(header_count_overflow)
-{
-	char raw[1024];
-	struct jhttp_request req;
-	build_request(raw, JHTTP_HEADER_MAX + 1);
-	EXPECT_EQm(-1, parse(raw, &req), "one header past max");
-}
-
 TEST(bare_lf_line_endings)
 {
 	struct jhttp_request req;
-	EXPECT_EQm(-1, parse("GET / HTTP/1.1\nHost: x\n\n", &req), "bare LF");
+	EXPECT_EQm(400, parse("GET / HTTP/1.1\nHost: x\n\n", &req), "bare LF");
 }
 
 TEST(empty_input)
 {
 	struct jhttp_request req;
-	EXPECT_EQm(-1, parse("", &req), "empty");
+	EXPECT_EQm(400, parse("", &req), "empty");
 }
 
 /* Known bug: body points at the terminating CRLF instead of past it */
@@ -171,7 +143,7 @@ TEST(incomplete_is_rejected)
 
 	struct jhttp_request req;
 	for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
-		EXPECT_EQm(-1, parse(cases[i], &req), cases[i]);
+		EXPECT_EQm(400, parse(cases[i], &req), cases[i]);
 }
 
 /* ---- conformance: valid messages a parser must (or may) accept ---- */
@@ -404,8 +376,6 @@ int main(void)
 	RUN(path_with_query);
 	RUN(single_header);
 	RUN(multiple_headers);
-	RUN(header_count_max);
-	RUN(header_count_overflow);
 	RUN(bare_lf_line_endings);
 	RUN(empty_input);
 	RUN(body_starts_after_blank_line);

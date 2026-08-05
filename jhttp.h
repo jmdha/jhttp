@@ -1,7 +1,6 @@
 #ifndef JHTTP
 #define JHTTP
 
-#include <asm-generic/errno.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -12,7 +11,6 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-#define JHTTP_HEADER_MAX     16
 #define JHTTP_CONNECTION_MAX 5000
 #define JHTTP_RESPONSE_MAX   8192
 
@@ -27,8 +25,7 @@ struct jhttp_request {
 	char* query;
 	char* version;
 	char* body;
-	size_t header_count;
-	struct jhttp_header headers[JHTTP_HEADER_MAX];
+	struct jhttp_header headers[8];
 };
 
 struct jhttp_response {
@@ -51,7 +48,8 @@ struct jhttp {
 
 static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	char* ptr;
-	req->header_count = 0;
+	struct jhttp_header* header = &req->headers[0];
+	header->key = NULL;
 
 	// skip leading empty line
 	if (str[0] == '\r' && str[1] == '\n') str = str + 2;
@@ -59,14 +57,14 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	// method
 	req->method = str;
 	str = strchr(str, ' ');
-	if (!str) return -1;
+	if (!str) return 400;
 	*str = '\0';
 	str++;
 
 	// path
 	req->path = str;
 	str = strchr(str, ' ');
-	if (!str) return -1;
+	if (!str) return 400;
 	*str = '\0';
 	str++;
 
@@ -80,8 +78,8 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	// version
 	req->version = str;
 	str = strchr(str, '\r');
-	if (!str) return -1;
-	if (str[1] != '\n') return -1;
+	if (!str) return 400;
+	if (str[1] != '\n') return 400;
 	*str = '\0';
 	str++, str++;
 
@@ -89,27 +87,27 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	while (1) {
 		if (*str == '\r') break;
 		// key
-		if (req->header_count >= JHTTP_HEADER_MAX) return -1;
-		req->headers[req->header_count].key = str;
+		if (header - req->headers >= sizeof(req->headers) / sizeof(req->headers[0])) return 431;
+		header->key = str;
 		str = strchr(str, ':');
-		if (!str) return -1;
+		if (!str) return 400;
 		*str = '\0';
 		str++;
 
 		// val
 		while (isspace(*str)) str++;
-		req->headers[req->header_count].val = str;
+		header->val = str;
 		str = strchr(str, '\r');
-		if (!str) return -1;
-		if (str[1] != '\n') return -1;
+		if (!str) return 400;
+		if (str[1] != '\n') return 400;
 		while (isspace(*(str - 1))) str--;
 		*str = '\0';
 		str++, str++;
-		req->header_count++;
+		header++;
 	}
 
 	// request end validation
-	if (str[0] != '\r' || str[1] != '\n') return -1;
+	if (str[0] != '\r' || str[1] != '\n') return 400;
 
 	req->body = str + 2;
 	return 0;
