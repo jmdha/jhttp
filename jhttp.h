@@ -75,7 +75,7 @@ struct jhttp_request {
 };
 
 struct jhttp_response {
-	size_t status;
+	jhttp_status status;
 	char   body[8192];
 };
 
@@ -312,12 +312,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 
 		size_t len = 0;
 		char obuf[sizeof(res.body)];
-		switch (res.status) {
-		case 200: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 200 OK\r\n"); break;
-		case 400: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 400 Bad Request\r\n"); break;
-		case 404: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 404 Not Found\r\n"); break;
-		case 409: len = snprintf(obuf, sizeof(obuf), "HTTP/1.1 409 Conflict\r\n"); break;
-		}
+		len += snprintf(obuf, sizeof(obuf), jhttp_status_string(res.status));
 		len += snprintf(obuf + len, sizeof(obuf) - len, "Content-Length: %zu\r\n\r\n", strlen(res.body));
 		len += snprintf(obuf + len, sizeof(obuf) - len, "%s", res.body);
 		size_t sent = 0;
