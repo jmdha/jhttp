@@ -59,7 +59,6 @@ enum jhttp_status {
 	JHTTP_STATUS_SERVICEUNAVAILABLE      = 503, // RFC 9110, 15.6.4
 	JHTTP_STATUS_GATEWAYTIMEOUT          = 504, // RFC 9110, 15.6.5
 	JHTTP_STATUS_HTTPVERSIONNOTSUPPORTED = 505, // RFC 9110, 15.6.6
-	
 };
 
 struct jhttp_header {
@@ -96,7 +95,6 @@ struct jhttp {
 };
 
 static int jhttp_request_parse(struct jhttp_request* req, char* str) {
-	char* ptr;
 	struct jhttp_header* header = &req->headers[0];
 	header->key = NULL;
 
