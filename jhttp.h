@@ -71,7 +71,7 @@ struct jhttp_request {
 	char* query;
 	char* version;
 	char* body;
-	struct jhttp_header headers[8];
+	struct jhttp_header headers[16];
 };
 
 struct jhttp_response {
