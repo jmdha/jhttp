@@ -312,7 +312,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 
 		size_t len = 0;
 		char obuf[sizeof(res.body)];
-		len += snprintf(obuf, sizeof(obuf), jhttp_status_string(res.status));
+		len += snprintf(obuf, sizeof(obuf), "HTTP/1.1 %s\r\n", jhttp_status_string(res.status));
 		len += snprintf(obuf + len, sizeof(obuf) - len, "Content-Length: %zu\r\n\r\n", strlen(res.body));
 		len += snprintf(obuf + len, sizeof(obuf) - len, "%s", res.body);
 		size_t sent = 0;
