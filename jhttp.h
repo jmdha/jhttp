@@ -283,7 +283,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 	for (size_t i = 0; i < jhttp->conn_capacity; i++) {
 		struct jhttp_connection* conn = &jhttp->conns[i];
 		if (!conn->socket) continue;
-		int r = read(conn->socket, conn->buffer, sizeof(conn->buffer) - conn->len);
+		int r = read(conn->socket, conn->buffer + conn->len, sizeof(conn->buffer) - conn->len);
 		if (r < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
 			close(conn->socket);
