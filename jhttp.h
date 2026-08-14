@@ -297,13 +297,14 @@ static int jhttp_poll(struct jhttp* jhttp) {
 			memset(conn, 0, sizeof(struct jhttp_connection));
 			continue;
 		}
+		printf("jhttp: connection %zu received %zu bytes\r\n", i, r);
 		conn->len += r;
 		memset(&req, 0, sizeof(struct jhttp_request));
 		char buf[sizeof(conn->buffer) + 1];
 		memcpy(buf, conn->buffer, conn->len);
 		buf[conn->len] = '\0';
 		int s = jhttp_request_parse(&req, buf);
-		if (s < 0) {
+		if (s != 0) {
 			close(conn->socket);
 			memset(conn, 0, sizeof(struct jhttp_connection));
 			continue;
@@ -313,7 +314,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		for (size_t i = 0; req.headers[i].key; i++)
 			if (strcmp(req.headers[i].key, "Content-Length") == 0)
 				content_length = atoi(req.headers[i].val);
-		if (request_size + content_length >= conn->len)
+		if (request_size + content_length < conn->len)
 			continue;
 		memset(&res, 0, sizeof(res));
 		jhttp->callback(&res, &req);
