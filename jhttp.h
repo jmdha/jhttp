@@ -60,39 +60,6 @@ typedef enum {
 	JHTTP_STATUS_HTTPVERSIONNOTSUPPORTED = 505, // RFC 9110, 15.6.6
 } jhttp_status;
 
-struct jhttp_header {
-	char* key;
-	char* val;
-};
-
-struct jhttp_request {
-	char* method;
-	char* path;
-	char* query;
-	char* version;
-	char* body;
-	struct jhttp_header headers[32];
-};
-
-struct jhttp_response {
-	jhttp_status status;
-	char   body[8192];
-};
-
-struct jhttp_connection {
-	int  socket;
-	int  len;
-	char buffer[8192];
-};
-
-struct jhttp {
-	int                      (*callback)(struct jhttp_response* res, const struct jhttp_request* req);
-	int                      socket;
-	struct sockaddr_in       addr;
-	size_t                   conn_capacity;
-	struct jhttp_connection* conns;
-};
-
 static const char* jhttp_status_string(jhttp_status status) {
 	switch (status) {
 		case 100: return "100 Continue";
@@ -137,10 +104,43 @@ static const char* jhttp_status_string(jhttp_status status) {
 		case 503: return "503 Service Unavailable";
 		case 504: return "504 Gateway Timeout";
 		case 505: return "505 HTTP Version Not Supported";
-		default: return "Unknown";
+		default:  return NULL;
 	}
-
 }
+
+struct jhttp_header {
+	char* key;
+	char* val;
+};
+
+struct jhttp_request {
+	char* method;
+	char* path;
+	char* query;
+	char* version;
+	char* body;
+	struct jhttp_header headers[32];
+};
+
+struct jhttp_response {
+	jhttp_status status;
+	char   body[8192];
+};
+
+struct jhttp_connection {
+	int  socket;
+	int  len;
+	char buffer[8192];
+};
+
+struct jhttp {
+	int                      (*callback)(struct jhttp_response* res, const struct jhttp_request* req);
+	int                      socket;
+	struct sockaddr_in       addr;
+	size_t                   conn_capacity;
+	struct jhttp_connection* conns;
+};
+
 
 static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	struct jhttp_header* header = &req->headers[0];
