@@ -311,7 +311,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		for (size_t i = 0; req.headers[i].key; i++)
 			if (strcmp(req.headers[i].key, "Content-Length") == 0)
 				content_length = atoi(req.headers[i].val);
-		if (request_size + content_length < conn->len)
+		if (request_size + content_length >= conn->len)
 			continue;
 		jhttp->callback(&res, &req);
 
