@@ -51,6 +51,7 @@ typedef enum {
 	JHTTP_STATUS_MISDIRECTEDREQUEST      = 421, // RFC 9110, 15.5.20
 	JHTTP_STATUS_UNPROCESSABLECONTENT    = 422, // RFC 9110, 15.5.21
 	JHTTP_STATUS_UPGRADEREQUIRED         = 426, // RFC 9110, 15.5.22
+	JHTTP_STATUS_HEADERSTOOLARGE         = 431, // RFC 6585, 5
 
 	JHTTP_STATUS_INTERNALSERVERERROR     = 500, // RFC 9110, 15.6.1
 	JHTTP_STATUS_NOTIMPLEMENTED          = 501, // RFC 9110, 15.6.2
@@ -98,6 +99,7 @@ static const char* jhttp_status_string(jhttp_status status) {
 		case 421: return "421 Misdirected Request";
 		case 422: return "422 Unprocessable Content";
 		case 426: return "426 Upgrade Required";
+		case 431: return "431 Request Header Fields Too Large";
 		case 500: return "500 Internal Server Error";
 		case 501: return "501 Not Implemented";
 		case 502: return "502 Bad Gateway";
