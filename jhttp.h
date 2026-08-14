@@ -313,7 +313,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 				content_length = atoi(req.headers[i].val);
 		if (request_size + content_length >= conn->len)
 			continue;
-		memset(res, 0, sizeof(res));
+		memset(&res, 0, sizeof(res));
 		jhttp->callback(&res, &req);
 
 		size_t len = 0;
