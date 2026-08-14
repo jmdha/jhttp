@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
 	signal(SIGQUIT, signal_handler);
 	signal(SIGABRT, signal_handler);
 
-	if (jhttp_init(&jhttp, 8000, handler) != 0) {
+	if (jhttp_init(&jhttp, 8002, handler) != 0) {
 		fprintf(stderr, "failed to initialize jhttp on port 8000\n");
 		exit(1);
 	}

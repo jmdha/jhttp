@@ -144,7 +144,6 @@ static const char* jhttp_status_string(jhttp_status status) {
 
 static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	struct jhttp_header* header = &req->headers[0];
-	header->key = NULL;
 
 	// skip leading empty line
 	if (str[0] == '\r' && str[1] == '\n') str = str + 2;
@@ -182,7 +181,8 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	while (1) {
 		if (*str == '\r') break;
 		// key
-		if (header - req->headers >= sizeof(req->headers) / sizeof(req->headers[0])) return 431;
+		header->key = NULL;
+		if (header - req->headers >= sizeof(req->headers) / sizeof(req->headers[0]) - 1) return 431;
 		header->key = str;
 		str = strchr(str, ':');
 		if (!str) return 400;
@@ -306,7 +306,12 @@ static int jhttp_poll(struct jhttp* jhttp) {
 			memset(conn, 0, sizeof(struct jhttp_connection));
 			continue;
 		}
-		if (!req.body)
+		size_t request_size = req.body - req.method;
+		size_t content_length = 0;
+		for (size_t i = 0; req.headers[i].key; i++)
+			if (strcmp(req.headers[i].key, "Content-Length") == 0)
+				content_length = atoi(req.headers[i].val);
+		if (request_size + content_length < conn->len)
 			continue;
 		jhttp->callback(&res, &req);
 
