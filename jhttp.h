@@ -221,18 +221,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		memset(&res, 0, sizeof(res));
 		jhttp->callback(&res, &req);
 
-		size_t len = 0;
-		char obuf[sizeof(res.body)];
-		len += snprintf(obuf, sizeof(obuf), "HTTP/1.1 %d\r\n", res.status);
-		len += snprintf(obuf + len, sizeof(obuf) - len, "Content-Length: %zu\r\n\r\n", strlen(res.body));
-		len += snprintf(obuf + len, sizeof(obuf) - len, "%s", res.body);
-		size_t sent = 0;
-		while (sent < len) {
-			size_t n = write(conn->socket, obuf, len);
-			if (n <= 0)
-				break;
-			sent += n;
-		}
+		dprintf(conn->socket, "HTTP/1.1 %d\r\nContent-Length: %zu\r\n\r\n%s", res.status, strlen(res.body), res.body);
 		conn->len = 0;
 	}
 	return 0;
