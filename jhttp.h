@@ -128,8 +128,7 @@ static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(struct jhtt
 	if (jhttp->socket == -1) return -1;
 
 	// set non-blocking
-	int flags = fcntl(jhttp->socket, F_GETFL, 0);
-	fcntl(jhttp->socket, F_SETFL, flags | O_NONBLOCK);
+	fcntl(jhttp->socket, F_SETFL, fcntl(jhttp->socket, F_GETFL, 0) | O_NONBLOCK);
 
 	// set reuse addr
 	int opt = 1;
