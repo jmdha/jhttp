@@ -218,7 +218,6 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		if (conn->len < request_size + content_length)
 			continue;
 		printf("jhttp: req size %zu content length %zu conn len %zu\n", request_size, content_length, conn->len);
-		memset(&res, 0, sizeof(res));
 		jhttp->callback(&res, &req);
 
 		dprintf(conn->socket, "HTTP/1.1 %d\r\nContent-Length: %zu\r\n\r\n%s", res.status, strlen(res.body), res.body);
