@@ -26,11 +26,6 @@ struct jhttp_request {
 	struct jhttp_header headers[32];
 };
 
-struct jhttp_response {
-	int  status;
-	char body[8192];
-};
-
 struct jhttp_connection {
 	int  socket;
 	int  len;
@@ -38,7 +33,7 @@ struct jhttp_connection {
 };
 
 struct jhttp {
-	int                      (*callback)(struct jhttp_response* res, const struct jhttp_request* req);
+	int                      (*callback)(struct jhttp_connection* conn, const struct jhttp_request* req);
 	int                      socket;
 	struct sockaddr_in       addr;
 	size_t                   conn_capacity;
@@ -112,7 +107,7 @@ static int jhttp_request_parse(struct jhttp_request* req, char* str) {
 	return 0;
 }
 
-static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(struct jhttp_response* res, const struct jhttp_request* req)) {
+static int jhttp_init(struct jhttp* jhttp, int port, int (*callback)(struct jhttp_connection* conn, const struct jhttp_request* req)) {
 	// handle null ptr
 	if (!jhttp) return -1;
 
@@ -182,7 +177,6 @@ static int jhttp_accept(struct jhttp* jhttp) {
 static int jhttp_poll(struct jhttp* jhttp) {
 	if (jhttp_accept(jhttp) != 0) return -1;
 	struct jhttp_request  req;
-	struct jhttp_response res;
 	for (size_t i = 0; i < jhttp->conn_capacity; i++) {
 		struct jhttp_connection* conn = &jhttp->conns[i];
 		if (!conn->socket) continue;
@@ -218,9 +212,7 @@ static int jhttp_poll(struct jhttp* jhttp) {
 		if (conn->len < request_size + content_length)
 			continue;
 		printf("jhttp: req size %zu content length %zu conn len %zu\n", request_size, content_length, conn->len);
-		jhttp->callback(&res, &req);
-
-		dprintf(conn->socket, "HTTP/1.1 %d\r\nContent-Length: %zu\r\n\r\n%s", res.status, strlen(res.body), res.body);
+		jhttp->callback(conn, &req);
 		conn->len = 0;
 	}
 	return 0;

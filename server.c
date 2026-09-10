@@ -5,17 +5,16 @@
 struct route {
 	char* method;
 	char* path;
-	int (*fn)(struct jhttp_response* res, const struct jhttp_request* req);
+	int (*fn)(struct jhttp_connection* conn, const struct jhttp_request* req);
 };
 
-int get_index(struct jhttp_response* res, const struct jhttp_request* req) {
+int get_index(struct jhttp_connection* conn, const struct jhttp_request* req) {
 	const char str[] =
 		"<!DOCTYPE html>"
 		"<html>"
 		"	<body><p>Hello!</p></body>"
-		"</html>k";
-	snprintf(res->body, sizeof(res->body), "%s", str);
-	res->status = 200;
+		"</html>";
+	dprintf(conn->socket, "HTTP/1.1 200\r\nContent-Length: %zu\r\n\r\n%s", strlen(str), str);
 	return 0;
 }
 
@@ -23,12 +22,11 @@ const struct route routes[] = {
 	{ "GET",  "/", get_index },
 };
 
-int handler(struct jhttp_response* res, const struct jhttp_request* req) {
+int handler(struct jhttp_connection* conn, const struct jhttp_request* req) {
 	for (size_t i = 0; i < sizeof(routes) / sizeof(struct route); i++)
 		if (strcmp(req->method, routes[i].method) == 0 && 
 		    strcmp(req->path,   routes[i].path)   == 0)
-			return routes[i].fn(res, req);
-	res->status = 404;
+			return routes[i].fn(conn, req);
 	return 0;
 }
 
