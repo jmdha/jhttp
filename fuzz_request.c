@@ -5,11 +5,14 @@
 #include "jhttp.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-	struct jhttp_request req;
+	char* method;
+	char* path;
+	char* query;
+	char* version;
 	char* buf = malloc(size + 1);
 	memcpy(buf, data, size);
 	buf[size] = '\0';
-	jhttp_request_parse(&req, buf);
+	jhttp_request_parse(buf, &method, &path, &query, &version);
 	free(buf);
 	return 0;
 }

@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+
 struct jhttp_connection {
 	int socket;
 	size_t ptr;
@@ -29,6 +30,49 @@ struct jhttp {
 	size_t conn_cap;
 	struct jhttp_connection* conns;
 };
+
+// parse string as http header
+// returns -1 in case of invalid request, 0 in case of incomplete, n in case of success where n is the number of bytes parsed
+static int jhttp_request_parse(char* str, char** method, char** path, char** query, char** version) {
+	const char* start = str;
+
+	// skip leading empty line
+	if (str[0] == '\r' && str[1] == '\n') str = str + 2;
+
+	// method
+	*method = str;
+	str = strchr(str, ' ');
+	if (!str) return 0;
+	*str = '\0';
+	str++;
+
+	// path
+	*path = str;
+	str = strchr(str, ' ');
+	if (!str) return 0;
+	*str = '\0';
+	str++;
+
+	// query
+	*query = strchr(*path, '?');
+	if (*query) {
+		**query = '\0';
+		(*query)++;
+	}
+
+	// version
+	*version = str;
+	str = strchr(str, '\r');
+	if (!str) return 0;
+	if (str[1] != '\n') return -1;
+	*str = '\0';
+	str++, str++;
+
+	// request end validation
+	if (str[0] != '\r' || str[1] != '\n') return -1;
+
+	return (str + 2) - start;
+}
 
 int jhttp_init(struct jhttp* jhttp) {
 	memset(jhttp, 0, sizeof(struct jhttp));
