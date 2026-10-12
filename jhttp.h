@@ -48,6 +48,13 @@ int jhttp_new_connection(struct jhttp* jhttp, struct jhttp_connection** conn) {
 			return -1;
 		}
 	}
+	for (size_t i = 0; i < jhttp->conn_len; i++) {
+		if (jhttp->conns[i].socket)
+			continue;
+		*conn = &jhttp->conns[i];
+		memset(*conn, 0, sizeof(struct jhttp_connection));
+		return 0;
+	}
 	*conn = &jhttp->conns[jhttp->conn_len];
 	jhttp->conn_len++;
 	memset(*conn, 0, sizeof(struct jhttp_connection));
@@ -96,11 +103,12 @@ int jhttp_poll(struct jhttp* jhttp, struct jhttp_connection** oconn) {
 				fprintf(stderr, "jhttp: failed to create connection\n");
 				continue;
 			}
+			printf("jhttp [%d]: new connection\n", s);
+			memset(conn, 0, sizeof(*conn));
 			conn->socket = s;
 			conn->addr = addr;
 			conn->head = 1;
-			*oconn = conn;
-			return 0;
+			continue;
 		}
 
 		if (conn->resp) {
@@ -132,6 +140,7 @@ int jhttp_poll(struct jhttp* jhttp, struct jhttp_connection** oconn) {
 				memset(conn, 0, sizeof(struct jhttp_connection));
 				continue;
 			}
+			printf("jhttp [%d]: received %d bytes\n", conn->socket, r);
 			conn->len += r;
 			// TODO: try parse
 			char* bpos = strstr(conn->buf, "\r\n\r\n");
